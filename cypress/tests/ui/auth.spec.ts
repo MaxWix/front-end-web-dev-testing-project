@@ -8,6 +8,7 @@ describe("User Sign-up and Login", function () {
     cy.task("db:seed");
 
     cy.intercept("POST", "/users").as("signup");
+
     cy.intercept("POST", apiGraphQL, (req) => {
       const { body } = req;
 
@@ -112,7 +113,70 @@ describe("User Sign-up and Login", function () {
   });
 
   it("should allow a visitor to sign-up, login, and logout", function () {
-    // The following line is meant to fail the test on purpose. You can remove it and update accordingly
-    cy.get("#fail-on-purpose").should("exist");
+    // User info
+    const userInfo = {
+      firstName: "Max",
+      lastName: "Wix",
+      userName: "IsAGreatFitForSuitable",
+      password: "s3cret",
+    };
+
+    // USER SIGN UP
+    // Enter signup page
+    cy.visit("/");
+    cy.getBySelLike("signup").click();
+    cy.getBySelLike("signup-title").should("be.visible").and("contain", "Sign Up");
+
+    // Fill signup form
+    cy.getBySelLike("signup-first-name").type(userInfo.firstName);
+    cy.getBySelLike("signup-last-name").type(userInfo.lastName);
+    cy.getBySelLike("signup-username").type(userInfo.userName);
+    cy.getBySelLike("signup-password").type(userInfo.password);
+    cy.getBySelLike("signup-confirmPassword").type(userInfo.password);
+    cy.visualSnapshot("Sign Up Form Filled");
+
+    // Submit signup form
+    cy.getBySel("signup-submit").click();
+    cy.wait("@signup");
+
+    // USER LOGIN
+    cy.login(userInfo.userName, userInfo.password);
+
+    // USER CREATE BANK ACCOUNT
+    // Checking for onboarding dialog
+    cy.getBySelLike("user-onboarding-dialog").should("be.visible");
+    cy.getBySelLike("user-onboarding-dialog-title").should("be.visible");
+    cy.getBySelLike("user-onboarding-dialog-content").should("be.visible");
+
+    // checking background
+    cy.getBySelLike("nav-top-notifications-count").should("exist");
+    cy.visualSnapshot("User Onboarding Dialog");
+    cy.getBySelLike("user-onboarding-next").click();
+
+    cy.getBySel("user-onboarding-dialog-title").should("contain", "Create Bank Account");
+
+    cy.getBySelLike("bankName-input").type("The Best Bank");
+    cy.getBySelLike("routingNumber-input").type("987654321");
+    cy.getBySelLike("accountNumber-input").type("123456789");
+    cy.visualSnapshot("Fill out New Bank Account Form");
+    cy.visualSnapshot("Create Bank Account Form Filled");
+
+    cy.getBySelLike("submit").click();
+    cy.wait("@gqlCreateBankAccountMutation");
+
+    // Click next after creating bank account
+    cy.getBySelLike("user-onboarding-dialog-title").should("be.visible");
+    cy.getBySelLike("user-onboarding-next").click();
+
+    // Modal should no longer exist
+    cy.getBySelLike("user-onboarding-dialog-title").should("not.exist");
+
+    // Logout
+    if (isMobile()) {
+      cy.getBySelLike("sidenav-toggle").click();
+    } //The internet gave me this one, yay accessible testing!
+
+    cy.getBySelLike("sidenav-signout").click();
+    cy.location("pathname").should("eq", "/signin");
   });
 });
